@@ -7,7 +7,7 @@ chanels<-c("O1","O2","AF3","AF4","FC5","FC6","F3","F4","F7","F8","T7","T8","P7",
 final_results<-data.frame(subject_id=rep(subjects,each=14),channels=rep(chanels,times=length(subjects)),total_peaks=NA,mw_counts=NA)
 # builf the data frame to save the final mind wandering results
 peak_positions<-data.frame(subject_id=character(),channels=character(),position=integer())
-# create the variable that record the peak positions
+# create the variable that records the peak positions
 
 for (iter_subjects in seq_along(subjects)){
         filename=paste("./resting data folder/",subjects[iter_subjects],"/",subjects[iter_subjects],"_",".txt",sep="")
