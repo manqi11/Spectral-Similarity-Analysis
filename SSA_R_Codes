@@ -1,5 +1,7 @@
+# Spectral Similarity Analysis codes to detect mind wandering during a task performance
+# Peiyun Zhou
+# peiyun@uw.edu
 library(peakPick)
-
 setwd("file directory") # set file directory 
 subjects<-grep("[0-9]",dir(),value=T) # read in the subect's ID information
 chanels<-c("O1","O2","AF3","AF4","FC5","FC6","F3","F4","F7","F8","T7","T8","P7","P8") # read in the channel information
