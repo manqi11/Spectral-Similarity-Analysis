@@ -1,0 +1,87 @@
+library(peakPick)
+
+setwd("file directory") # set file directory 
+subjects<-grep("[0-9]",dir(),value=T) # read in the subect's ID information
+chanels<-c("O1","O2","AF3","AF4","FC5","FC6","F3","F4","F7","F8","T7","T8","P7","P8") # read in the channel information
+final_results<-data.frame(subject_id=rep(subjects,each=14),channels=rep(chanels,times=length(subjects)),total_peaks=NA,mw_counts=NA)
+# builf the data frame to save the final mind wandering results
+peak_positions<-data.frame(subject_id=character(),channels=character(),position=integer())
+# create the variable that record the peak positions
+
+for (iter_subjects in seq_along(subjects)){
+        filename=paste("./resting data folder/",subjects[iter_subjects],"/",subjects[iter_subjects],"_",".txt",sep="")
+        rest <- read.table(filename,header = T) # read in the resting-state EEG data
+        filename=paste("./task data folder/",subjects[iter_subjects],"/",subjects[iter_subjects],"_",".txt",sep="")
+        task <- read.table(filename, header=T) # read in the task EEG data
+        for (iter_chanels in seq_along(chanels)){
+                channel <- chanels[iter_chanels]
+                relaxation <- spec.pgram(rest[channel], spans = c(64), plot = F)
+                #Now, we want a standardized spectrogram. For example, a spetrogram with a resolution of 1 Hz; that is, we 
+                #will contain power spectra at 1 , 2, … up to 20 Hz (beginning of the “end of”upper beta" band). 
+                #The spec.pgram function uses internal frequencies that span continuous values from 0 to 0.5, and whose 
+                #meaning depends on both the length of the time series and the sampling rate of our headset. The correct 
+                #frequencies can be estimated by downsampling the original frequencies. This is a quick way of doing so:
+                
+                sampling <- 128
+                L <- length(relaxation$freq)  # Number of sampled frequencies
+                samples <- rev(round(seq(L, 0, -L / (sampling)))) # Sample backwards in 0.5 increments
+                template <- log(relaxation$spec[samples[1:41]])
+                rsa <- function(timeseries, index, template, past = 4, sampling = 128) {
+                        start <- index - (past * sampling) + 1
+                        new <- spec.pgram(timeseries[start : index], spans = c(4), plot=F)
+                        L <- length(new$freq)
+                        samples <- rev(round(seq(L, 0, -L/(sampling))))
+                        temporary <- log(new$spec[samples[1:41]])
+                        #print(temporary)
+                        cor(temporary[3:40], template[3:40])
+                }
+                past <- 2
+                density <- 1
+                
+                indices <- seq((sampling * past) + 1, length(task[,channel]), density * sampling)
+                summary(indices)
+                wave <- indices
+                summary(wave)
+                ts <- task[,channel]
+                for (j in 1:length(indices)) {
+                        wave[j] <- rsa(ts, indices[j], template, past = past)
+                        if ((j %% 100) == 0) {
+                                # print(100 * round( (j / length(indices)), 2)) # This prints a % complete
+                        }  
+                } 
+                wave <- wave^2
+                
+                indices <- seq(sampling * past + 1, length(rest$F3), density * sampling)
+                summary(indices)
+                rwave <- indices
+                summary(rwave)
+                rwave<-as.numeric(rwave)
+                summary(rwave)
+                for (j in 1:length(indices)) {
+                        rwave[j] <- rsa(rest$F3, indices[j], template, past = past)
+                        if ((j %% 100) == 0) {
+                                #print(100 * round( (j / length(indices)), 2))
+                        }  
+                }
+                
+                summary(rwave)
+                rwave <- rwave^2
+                
+                #summary(rwave) 
+                expected_mean <- mean(rwave,na.rm=T) # the mean of correlations between the resting-state EEG with its 5mins mean
+                expected_mean
+                expected_min <- min(rwave,na.rm=T) # the minimal value of correlations between the resting-state EEG with its 5mins mean
+                result<-smooth.spline(wave) # save the smoothed SSA results into result
+                peak_hits <- peakpick(matrix(result$y, ncol=1), 2, peak.min.sd = 3,peak.npos=10) # Find the peaks in the SSA wave
+                
+                final_results$total_peaks[final_results$subject_id==subjects[iter_subjects] & final_results$channels==chanels[iter_chanels]]<-sum(peak_hits) 
+                # save the total peaks for each channel within each subject into the variable "total_peaks" in the final_results data frame
+                final_results$mw_counts[final_results$subject_id==subjects[iter_subjects] & final_results$channels==chanels[iter_chanels]]<-sum(result$y[peak_hits]>expected_mean)
+                # save the mind wandering peaks for each channel within each subject into the variable "mw_peaks" in the final_results data frame
+                final_results$expected_mean[final_results$subject_id==subjects[iter_subjects] & final_results$channels==chanels[iter_chanels]]<-expected_mean
+                # get the baseline for each subject at each channel
+        }
+}
+final_results$ratio<-final_results$mw_counts/final_results$total_peaks
+# calculate the mind wandering ratio in the cognitive task and save it into the varaible "ratio"
+write.csv(final_results,file="directory/file name.csv",row.names=F,quote=F) # save the results into a .csv file
